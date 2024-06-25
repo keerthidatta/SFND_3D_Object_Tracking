@@ -28,7 +28,7 @@ int main(int argc, const char *argv[])
     /* INIT VARIABLES AND DATA STRUCTURES */
 
     // data location
-    string dataPath = "../";
+    string dataPath = "../../";
 
     // camera
     string imgBasePath = dataPath + "images/";
@@ -129,18 +129,18 @@ int main(int argc, const char *argv[])
         clusterLidarWithROI((dataBuffer.end()-1)->boundingBoxes, (dataBuffer.end() - 1)->lidarPoints, shrinkFactor, P_rect_00, R_rect_00, RT);
 
         // Visualize 3D objects
-        bVis = true;
+        //bVis = true;
         if(bVis)
         {
-            show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true);
+            show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(500, 750), true);
         }
-        bVis = false;
+        //bVis = false;
 
         cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
         
         
         // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
-        continue; // skips directly to the next image without processing what comes beneath
+        //continue; // skips directly to the next image without processing what comes beneath
 
         /* DETECT IMAGE KEYPOINTS */
 
@@ -152,13 +152,38 @@ int main(int argc, const char *argv[])
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
         string detectorType = "SHITOMASI";
 
-        if (detectorType.compare("SHITOMASI") == 0)
+         if (detectorType.compare("SHITOMASI") == 0)
         {
             detKeypointsShiTomasi(keypoints, imgGray, false);
         }
+        else if(detectorType.compare("HARRIS")==0)
+        {
+            detKeypointsHarris(keypoints, imgGray, false);
+        }
+        else if(detectorType.compare("FAST")==0)
+        {
+            detKeypointsFast(keypoints, imgGray, false);
+        }
+        else if(detectorType.compare("BRISK")==0)
+        {
+            detKeypointsBrisk(keypoints, imgGray, false);
+        }
+        else if(detectorType.compare("ORB")==0)
+        {
+            detKeypointsOrb(keypoints, imgGray, false);
+        }        
+        else if(detectorType.compare("AKAZE")==0)
+        {
+            detKeypointsAkaze(keypoints, imgGray, false);
+        }
+        else if(detectorType.compare("SIFT")==0)
+        {
+            detKeypointsSift(keypoints, imgGray, false);
+        }
         else
         {
-            //...
+            std::cout << "Not implemented" << std::endl;
+            break;
         }
 
         // optional : limit number of keypoints (helpful for debugging and learning)
