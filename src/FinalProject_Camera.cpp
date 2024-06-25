@@ -45,6 +45,53 @@ int main(int argc, const char *argv[])
     string yoloModelConfiguration = yoloBasePath + "yolov3.cfg";
     string yoloModelWeights = yoloBasePath + "yolov3.weights";
 
+
+    //camera features/matching
+        // Open the file
+    std::ifstream file(dataPath + "params/parameters.txt");
+
+    // Check if the file is opened successfully
+    if (!file.is_open()) {
+        std::cerr << "Error opening the file." << std::endl;
+        return 1;
+    }
+
+    string detectorType = "SIFT"; //HARRIS, FAST
+    string descriptorType = "SIFT"; // BRIEF, ORB, FREAK, AKAZE, SIFT
+    string matcherType = "MAT_FLANN";        // MAT_BF, MAT_FLANN
+    string descriptorNorm = "DES_BINARY"; // DES_BINARY, DES_HOG
+    string selectorType = "SEL_KNN";       // SEL_NN, SEL_KNN
+
+    string parameterName;
+    string parameterValue;
+
+    while (file >> parameterName >> parameterValue) 
+    {
+        if(parameterName == "detectorType")
+        {
+            detectorType = parameterValue;
+        }
+        else if(parameterName == "descriptorType")
+        {
+            descriptorType = parameterValue;
+        }
+        else if(parameterName == "matcherType")
+        {
+            matcherType = parameterValue;
+        }
+        else if(parameterName == "descriptorNorm")
+        {
+            descriptorNorm = parameterValue;
+        }
+        else if(parameterName == "selectorType")
+        {
+            selectorType = parameterValue;
+        }
+    }
+
+    // Close the file
+    file.close();
+
     // Lidar
     string lidarPrefix = "KITTI/2011_09_26/velodyne_points/data/000000";
     string lidarFileType = ".bin";
@@ -150,7 +197,6 @@ int main(int argc, const char *argv[])
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "SHITOMASI";
 
          if (detectorType.compare("SHITOMASI") == 0)
         {
@@ -209,7 +255,7 @@ int main(int argc, const char *argv[])
         /* EXTRACT KEYPOINT DESCRIPTORS */
 
         cv::Mat descriptors;
-        string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+
         descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
 
         // push descriptors for current frame to end of data buffer
@@ -224,9 +270,6 @@ int main(int argc, const char *argv[])
             /* MATCH KEYPOINT DESCRIPTORS */
 
             vector<cv::DMatch> matches;
-            string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
                              (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
