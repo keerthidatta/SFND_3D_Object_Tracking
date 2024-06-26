@@ -163,7 +163,7 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
             matchIndices.emplace_back(matchIndex);
         }
     }
-    double avgScaledDistance = 1.25 * std::accumulate(matchDistance.begin(), matchDistance.end(), 0.0) / matchDistance.size();
+    double avgScaledDistance = std::accumulate(matchDistance.begin(), matchDistance.end(), 0.0) / matchDistance.size();
     for(int index=0; index<matchDistance.size(); index++)
     {
         if (matchDistance.at(index) < avgScaledDistance)
@@ -175,7 +175,7 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
     // Calculate the elapsed time
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cout << "Elapsed time for clusterKptMatchesWithROI: " << duration.count() << " milliseconds" << std::endl;
+    //std::cout << "Elapsed time for clusterKptMatchesWithROI: " << duration.count() << " milliseconds" << std::endl;
 
 }
 
@@ -230,29 +230,45 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
     TTC = -dT / (1 - medDistRatio);
 }
 
+// Helper function to compute the median of a vector of doubles
+double computeMedian(std::vector<double> &lidarPoints) 
+{
+    size_t size = lidarPoints.size();
+    std::sort(lidarPoints.begin(), lidarPoints.end());
+    
+    if (lidarPoints.size() % 2 == 0)
+        return (lidarPoints[size / 2 - 1] + lidarPoints[size / 2]) / 2;
+    else
+        return lidarPoints[size / 2];
+}
 
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
     double dT = 1/frameRate;
-    std::vector<double> avgPrevPointX;
-    std::vector<double> avgCurrPointX;
+    std::vector<double> prevX;
+    std::vector<double> currX;
 
     for(auto prevPoint : lidarPointsPrev)
-        avgPrevPointX.emplace_back(prevPoint.x);
+        prevX.emplace_back(prevPoint.x);
 
     for(auto currPoint : lidarPointsCurr)
-        avgCurrPointX.emplace_back(currPoint.x);
+        currX.emplace_back(currPoint.x);
 
-    double avgPrevX = std::accumulate(avgPrevPointX.begin(), avgPrevPointX.end(), 0.0)/avgPrevPointX.size();
-    double avgCurrX = std::accumulate(avgCurrPointX.begin(), avgCurrPointX.end(), 0.0)/avgCurrPointX.size();
-    
-    TTC = avgCurrX * dT / (avgPrevX - avgCurrX);
+    double medianPrevX = computeMedian(prevX);
+    double medianCurrX = computeMedian(currX);
+
+    // Compute TTC
+    if (medianPrevX - medianCurrX > 0.0) 
+        TTC = medianCurrX * dT / (medianPrevX - medianCurrX);
+    else 
+        TTC = std::numeric_limits<double>::infinity();
 }
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    std::vector<std::vector<int>> boundingBoxCount(prevFrame.boundingBoxes.size(), std::vector<int>(currFrame.boundingBoxes.size(), 0));
+    //std::vector<std::vector<int>> boundingBoxCount(prevFrame.boundingBoxes.size(), std::vector<int>(currFrame.boundingBoxes.size(), 0));
+    std::map<std::pair<int, int>, int> boundingBoxCount;
     for(int i=0; i<matches.size(); i++)
     {
         auto match = matches[i];
@@ -276,24 +292,28 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         {
             for(auto currBoundingBoxId: currBoundingBoxIds)
             {
-                boundingBoxCount[prevBoundingBoxId][currBoundingBoxId]++;
+                boundingBoxCount[std::make_pair(prevBoundingBoxId, currBoundingBoxId)]++;
             }
         }
     }
-
-    for (int prevBoxId = 0; prevBoxId < prevFrame.boundingBoxes.size(); prevBoxId++)
+    for (const auto &prevBox : prevFrame.boundingBoxes) 
     {
-        int maxBoxCount = 0;
-        int maxBoxId = 0;
-        for (int currBoxId = 0; currBoxId < currFrame.boundingBoxes.size(); currBoxId++)
-        {
-            if (boundingBoxCount[prevBoxId][currBoxId] > maxBoxCount)
-            {
-                maxBoxCount = boundingBoxCount[prevBoxId][currBoxId];
-                maxBoxId = currBoxId;
+        int prevId = prevBox.boxID;
+        int maxCount = 0;
+        int bestMatchId = -1;
+
+        for (const auto &currBox : currFrame.boundingBoxes) {
+            int currId = currBox.boxID;
+            auto pair = std::make_pair(prevId, currId);
+
+            if (boundingBoxCount[pair] > maxCount) {
+                maxCount = boundingBoxCount[pair];
+                bestMatchId = currId;
             }
         }
-        bbBestMatches.insert({prevBoxId, maxBoxId});
+        if (bestMatchId != -1) {
+            bbBestMatches[prevId] = bestMatchId;
+        }
     }
-    std::cout << bbBestMatches.size() << std::endl;
+    //std::cout << bbBestMatches.size() << std::endl;
 }
